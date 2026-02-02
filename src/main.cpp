@@ -410,7 +410,7 @@ int
         } },
         { "--log=", [&](int& i){
 
-            setenv("LOG_OUTPUT", *argv + strlen("--log="), 1);
+            setenv("LOG_OUTPUT", argv[i] + strlen("--log="), 1);
 
         } },
         { "--server=", [&](int& i){
