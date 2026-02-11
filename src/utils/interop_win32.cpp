@@ -58,6 +58,9 @@ void InteropTraits<Win32PlatformTag>::AddFilesFromDirectoryToTpaList(const std::
                 {
 
                     std::string filename(data.cFileName);
+                    if (extLength >= filename.length())
+                        continue;
+
                     size_t extPos = filename.length() - extLength;
                     std::string filenameWithoutExt(filename.substr(0, extPos));
 
