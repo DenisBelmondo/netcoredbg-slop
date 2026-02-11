@@ -20,8 +20,6 @@ namespace BuildInfo
 
     extern const char date[];
     extern const char time[];      // Date and time of the build.
-
-    extern const char hostname[];  // hostname of the buildserver.
 }
 
 

@@ -14,8 +14,6 @@
 //
 //   * CPU_ARCH should contain name of the CPU architecture;
 //
-//   * HOSTNAME should contain host name of the buildserver.
-//
 // All macros listed above must not have enclosing double quotes and typically
 // should be provided by buildsystem (CMake, etc...)
 
@@ -41,8 +39,6 @@ namespace BuildInfo
 
     const char date[]     = __DATE__;
     const char time[]     = __TIME__;
-
-    const char hostname[] = STRINGIFY(HOSTNAME);
 }
 
 } // netcoredbg

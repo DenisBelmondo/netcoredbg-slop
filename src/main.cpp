@@ -88,13 +88,11 @@ static void print_buildinfo()
         "      Build type:  %s\n"
         "      Build date:  %s %s\n"
         "      Target OS:   %s\n"
-        "      Target arch: %s\n"
-        "      Hostname:    %s\n\n",
+        "      Target arch: %s\n\n",
             BuildInfo::build_type,
             BuildInfo::date, BuildInfo::time,
             BuildInfo::os_name,
-            BuildInfo::cpu_arch,
-            BuildInfo::hostname
+            BuildInfo::cpu_arch
     );
 
     printf("NetcoreDBG VCS info:  %s\n", BuildInfo::netcoredbg_vcs_info);
