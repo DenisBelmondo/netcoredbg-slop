@@ -178,7 +178,7 @@ HRESULT NameForTypeByToken(mdToken mb,
                                         std::string &mdName,
                                         std::list<std::string> *args)
 {
-    mdName[0] = L'\0';
+    mdName.clear();
     if (TypeFromToken(mb) != mdtTypeDef
         && TypeFromToken(mb) != mdtTypeRef)
     {
@@ -283,7 +283,7 @@ HRESULT NameForToken(mdToken mb,
                                   bool bClassName,
                                   std::list<std::string> *args)
 {
-    mdName[0] = L'\0';
+    mdName.clear();
     if (TypeFromToken(mb) != mdtTypeDef
         && TypeFromToken(mb) != mdtFieldDef
         && TypeFromToken(mb) != mdtMethodDef
