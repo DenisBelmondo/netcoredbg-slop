@@ -2,6 +2,37 @@
 
 this is my personal fork of netcoredbg i initially made with claude to cooperate with godot. it should have better user-unhandled exception filtering for this purpose.
 
+## Fork additions
+
+### Why
+
+The **user-unhandled** exception filter (break when an exception thrown in your code is caught by framework code) never fired for Godot C# projects. Upstream netcoredbg decides what counts as "your code" (Just My Code) purely by symbol presence: any module with a loadable PDB is user code. Godot ships `GodotSharp.dll` *with* its PDB, so the interop layer that catches every script exception (`Godot.Bridge.CSharpInstanceBridge.Call`) was classified as user code — and "caught in user code" means no break. This fork adds two ways to classify such modules as non-user code:
+
+1. **`nonUserModules`** (launch.json, see below) — explicit list of module glob patterns forced to non-user code.
+2. Assemblies compiled with JIT optimizations (their `DebuggableAttribute` lacks `DisableOptimizations`, i.e. Release builds) are treated as non-user code even when symbols are present, matching what Visual Studio's debugger does. This alone doesn't help with Godot — the Debug API assemblies Godot ships are compiled unoptimized, which is why option 1 exists.
+
+### Usage with Godot
+
+In your launch configuration (`"type": "coreclr"`, launch or attach), keep `justMyCode` enabled (it's the default) and add:
+
+```json
+"nonUserModules": ["GodotSharp*", "GodotPlugins*"]
+```
+
+Then enable the **User-Unhandled Exceptions** breakpoint checkbox in the editor. A `throw` in `_Ready`/`_Process`/signal handlers now breaks in the debugger at the throw site instead of just logging to Godot's console.
+
+### `nonUserModules` reference
+
+- Array of glob patterns; `*` matches any substring, `?` matches one character, matching is case-insensitive.
+- A pattern containing a path separator (`/` or `\`) is matched against the module's full path; otherwise against the module file name (e.g. `GodotSharp.dll`).
+- Matching modules are treated as non-user code for Just My Code purposes: user-unhandled exception detection, and stepping (steps skip over them). Only meaningful while `justMyCode` is `true`.
+- Works for any engine/framework that ships PDBs next to its assemblies, not just Godot — e.g. `"nonUserModules": ["SomeVendor.*.dll"]`.
+- MI protocol equivalent: `-gdb-set non-user-modules GodotSharp*;GodotPlugins*` (semicolon-separated).
+
+### Using the fork in VSCodium
+
+`tools/deploy-vscodium.sh` copies a built `bin/` over the netcoredbg bundled with the [free-vscode-csharp](https://github.com/muhammadsammy/free-vscode-csharp) extension (backing up the stock debugger first) and patches the extension's `package.json` so launch.json recognizes `nonUserModules` (autocomplete, no unknown-property squiggle). Fully restart the editor afterwards. Extension updates overwrite both — just re-run the script. `--restore` puts everything back to stock.
+
 # Debugger for the .NET Core Runtime
 
 The NetCoreDbg debugger implements [GDB/MI](https://sourceware.org/gdb/onlinedocs/gdb/GDB_002fMI.html)
