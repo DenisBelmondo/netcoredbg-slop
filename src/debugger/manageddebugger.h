@@ -155,6 +155,7 @@ public:
 
     bool IsJustMyCode() const override { return m_justMyCode; }
     void SetJustMyCode(bool enable) override;
+    void SetNonUserModules(std::vector<std::string> &&nonUserModules) override;
     bool IsStepFiltering() const override { return m_stepFiltering; }
     void SetStepFiltering(bool enable) override;
     bool IsHotReload() const override { return m_hotReload; }

@@ -915,6 +915,20 @@ static HRESULT HandleCommand(std::shared_ptr<IDebugger> &sharedDebugger, Breakpo
 
         if (args.at(0) == "just-my-code")
             sharedDebugger->SetJustMyCode(args.at(1) == "1");
+        else if (args.at(0) == "non-user-modules")
+        {
+            // Semicolon-separated list of module name/path glob patterns, that forced to be "non-user code",
+            // for example: -gdb-set non-user-modules GodotSharp*;GodotPlugins*
+            std::vector<std::string> nonUserModules;
+            std::istringstream ss(args.at(1));
+            std::string pattern;
+            while (std::getline(ss, pattern, ';'))
+            {
+                if (!pattern.empty())
+                    nonUserModules.push_back(pattern);
+            }
+            sharedDebugger->SetNonUserModules(std::move(nonUserModules));
+        }
         else if (args.at(0) == "enable-step-filtering")
             sharedDebugger->SetStepFiltering(args.at(1) == "1");
         else if (args.at(0) == "enable-hot-reload")

@@ -1568,6 +1568,11 @@ void ManagedDebugger::SetJustMyCode(bool enable)
     m_sharedBreakpoints->SetJustMyCode(enable);
 }
 
+void ManagedDebugger::SetNonUserModules(std::vector<std::string> &&nonUserModules)
+{
+    m_sharedModules->SetNonUserModules(std::move(nonUserModules));
+}
+
 void ManagedDebugger::SetStepFiltering(bool enable)
 {
     m_stepFiltering = enable;

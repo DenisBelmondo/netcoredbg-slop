@@ -598,6 +598,7 @@ static HRESULT HandleCommand(std::shared_ptr<IDebugger> &sharedDebugger, std::st
         }
 
         sharedDebugger->SetJustMyCode(arguments.value("justMyCode", true)); // MS vsdbg have "justMyCode" enabled by default.
+        sharedDebugger->SetNonUserModules(arguments.value("nonUserModules", std::vector<std::string>()));
         sharedDebugger->SetStepFiltering(arguments.value("enableStepFiltering", true)); // MS vsdbg have "enableStepFiltering" enabled by default.
 
         if (!fileExec.empty())
@@ -800,6 +801,8 @@ static HRESULT HandleCommand(std::shared_ptr<IDebugger> &sharedDebugger, std::st
     } },
     { "attach", [&](const json &arguments, json &body){
         int processId;
+
+        sharedDebugger->SetNonUserModules(arguments.value("nonUserModules", std::vector<std::string>()));
 
         const json &processIdArg = arguments.at("processId");
         if (processIdArg.is_string())

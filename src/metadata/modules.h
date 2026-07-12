@@ -121,6 +121,8 @@ public:
         bool needHotReload,
         std::string &outputText);
 
+    void SetNonUserModules(std::vector<std::string> &&nonUserModules);
+
     void CleanupAllModules();
 
     HRESULT GetFrameNamedLocalVariable(
@@ -165,6 +167,13 @@ private:
     std::mutex m_modulesInfoMutex;
     std::unordered_map<CORDB_ADDRESS, ModuleInfo> m_modulesInfo;
     ModulesAppUpdate m_modulesAppUpdate;
+
+    // Module name/path glob patterns, that forced to be "non-user code" (JMC status disabled),
+    // even if module have loaded symbols. Setup this list before debuggee process start only.
+    std::mutex m_nonUserModulesMutex;
+    std::vector<std::string> m_nonUserModules;
+
+    bool IsNonUserModule(const std::string &modulePath, const std::string &moduleName);
 
     // Note, m_modulesSources have its own mutex for private data state sync.
     ModulesSources m_modulesSources;

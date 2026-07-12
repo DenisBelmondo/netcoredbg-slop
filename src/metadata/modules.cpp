@@ -7,6 +7,8 @@
 #include <sstream>
 #include <vector>
 #include <iomanip>
+#include <cctype>
+#include <cstdint>
 
 #include "managed/interop.h"
 #include "utils/platform.h"
@@ -520,6 +522,92 @@ static HRESULT LoadSymbols(IMetaDataImport *pMD, ICorDebugModule *pModule, VOID 
     );
 }
 
+// Case-insensitive glob pattern match with `*` (any substring) and `?` (any one char) support.
+static bool MatchModulePattern(const std::string &pattern, const std::string &str)
+{
+    size_t p = 0, s = 0;
+    size_t starP = std::string::npos, starS = 0;
+    while (s < str.size())
+    {
+        if (p < pattern.size() &&
+            (pattern[p] == '?' || std::tolower((unsigned char)pattern[p]) == std::tolower((unsigned char)str[s])))
+        {
+            ++p;
+            ++s;
+        }
+        else if (p < pattern.size() && pattern[p] == '*')
+        {
+            starP = p++;
+            starS = s;
+        }
+        else if (starP != std::string::npos)
+        {
+            p = starP + 1;
+            s = ++starS;
+        }
+        else
+            return false;
+    }
+    while (p < pattern.size() && pattern[p] == '*')
+        ++p;
+    return p == pattern.size();
+}
+
+void Modules::SetNonUserModules(std::vector<std::string> &&nonUserModules)
+{
+    std::lock_guard<std::mutex> lock(m_nonUserModulesMutex);
+    m_nonUserModules = std::move(nonUserModules);
+}
+
+bool Modules::IsNonUserModule(const std::string &modulePath, const std::string &moduleName)
+{
+    std::lock_guard<std::mutex> lock(m_nonUserModulesMutex);
+    for (const auto &pattern : m_nonUserModules)
+    {
+        // Pattern with path separator matched against full module path, otherwise - against module file name only.
+        const std::string &matchTo = (pattern.find('/') != std::string::npos || pattern.find('\\') != std::string::npos) ?
+                                     modulePath : moduleName;
+        if (MatchModulePattern(pattern, matchTo))
+            return true;
+    }
+    return false;
+}
+
+// Return true, if module's assembly was built with JIT optimizations enabled ("Release" build).
+// MSVS and vsdbg with "Just My Code" enabled count optimized modules as "non-user code" even with
+// loaded symbols, see:
+// https://learn.microsoft.com/en-us/visualstudio/debugger/just-my-code
+// "The .NET debugger considers optimized binaries and non-loaded .pdb files to be non-user code."
+static bool IsModuleJITOptimized(IMetaDataImport *pMDImport)
+{
+    ToRelease<IMetaDataAssemblyImport> pAssemblyImport;
+    mdAssembly assemblyToken;
+    if (FAILED(pMDImport->QueryInterface(IID_IMetaDataAssemblyImport, (LPVOID*) &pAssemblyImport)) ||
+        FAILED(pAssemblyImport->GetAssemblyFromScope(&assemblyToken)))
+        return false; // Can't detect (netmodule without assembly manifest), assume "not optimized".
+
+    const void *pAttrData = nullptr;
+    ULONG attrDataSize = 0;
+    if (S_OK != pMDImport->GetCustomAttributeByName(assemblyToken, W("System.Diagnostics.DebuggableAttribute"), &pAttrData, &attrDataSize))
+        return true; // No DebuggableAttribute at all - optimized build.
+
+    // Attribute value blob: 2 bytes prolog (0x0001), then constructor arguments, then named arguments count (2 bytes).
+    // DebuggableAttribute(DebuggingModes modes) - one int32 argument, 8 bytes blob;
+    // DebuggableAttribute(bool isJITTrackingEnabled, bool isJITOptimizerDisabled) - two bool arguments, 6 bytes blob.
+    const unsigned char *pBlob = (const unsigned char *)pAttrData;
+    if (attrDataSize < 6 || pBlob[0] != 0x01 || pBlob[1] != 0x00)
+        return true; // Malformed blob, assume "optimized".
+
+    if (attrDataSize >= 8)
+    {
+        std::uint32_t modes = (std::uint32_t)pBlob[2] | ((std::uint32_t)pBlob[3] << 8) |
+                              ((std::uint32_t)pBlob[4] << 16) | ((std::uint32_t)pBlob[5] << 24);
+        return !(modes & 0x100); // DebuggingModes.DisableOptimizations = 0x100
+    }
+
+    return pBlob[3] == 0; // isJITOptimizerDisabled == false
+}
+
 HRESULT Modules::TryLoadModuleSymbols(ICorDebugModule *pModule, Module &module, bool needJMC, bool needHotReload, std::string &outputText)
 {
     HRESULT Status;
@@ -548,7 +636,16 @@ HRESULT Modules::TryLoadModuleSymbols(ICorDebugModule *pModule, Module &module, 
             else
                 pModule2->SetJITCompilerFlags(CORDEBUG_JIT_DISABLE_OPTIMIZATION);
 
-            if (SUCCEEDED(Status = pModule2->SetJMCStatus(TRUE, 0, nullptr))) // If we can't enable JMC for module, no reason disable JMC on module's types/methods.
+            // Module with loaded symbols could be "non-user code" with JMC enabled in two cases:
+            // * module covered by "nonUserModules" launch option patterns (for example, engine/framework
+            //   modules like GodotSharp.dll, that shipped with symbols but must not be treated as user code);
+            // * module's assembly built with JIT optimizations enabled ("Release" build), same behaviour
+            //   as MSVS and vsdbg have with "Just My Code" enabled.
+            if (needJMC && (IsNonUserModule(module.path, module.name) || IsModuleJITOptimized(pMDImport)))
+            {
+                pModule2->SetJMCStatus(FALSE, 0, nullptr);
+            }
+            else if (SUCCEEDED(Status = pModule2->SetJMCStatus(TRUE, 0, nullptr))) // If we can't enable JMC for module, no reason disable JMC on module's types/methods.
             {
                 // Note, we use JMC in runtime all the time (same behaviour as MS vsdbg and MSVS debugger have),
                 // since this is the only way provide good speed for stepping in case "JMC disabled".
