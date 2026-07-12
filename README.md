@@ -1,4 +1,6 @@
-this is my personal fork of netcoredbg i initially made to cooperate with godot. it should have better user-unhandled exception filtering for this purpose.
+**AI SLOP WARNING**
+
+this is my personal fork of netcoredbg i initially made with claude to cooperate with godot. it should have better user-unhandled exception filtering for this purpose.
 
 # Debugger for the .NET Core Runtime
 
