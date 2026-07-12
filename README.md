@@ -1,3 +1,5 @@
+this is my personal fork of netcoredbg i initially made to cooperate with godot. it should have better user-unhandled exception filtering for this purpose.
+
 # Debugger for the .NET Core Runtime
 
 The NetCoreDbg debugger implements [GDB/MI](https://sourceware.org/gdb/onlinedocs/gdb/GDB_002fMI.html)
